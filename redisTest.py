@@ -5,7 +5,7 @@ if __name__ == "__main__":
 
     lsm2 = locationStreamManager(redis_connection = lsm.redisConnection)
 
-    stream_data = lsm2.getStreamData()
+    stream_data = lsm2.getAllStreamData()
 
     if(stream_data):
         lsm2.processLocationData(stream_data)
