@@ -1,5 +1,7 @@
 import redis
 import datetime
+import time
+import random
 from redis.exceptions import ConnectionError, DataError, NoScriptError, RedisError, ResponseError
 
 
@@ -49,14 +51,37 @@ class locationStreamManager:
             return False
         return True
 
-    # getStreamData() ->
-    # Used to get stream of data for a particular time.
-    def getStreamData(self):
+    # getAllStreamData() ->
+    # Used to get all stream of data for a particular time.
+    def getAllStreamData(self):
         # Check connection status
         if not self.isConnectionAlive():
             return False
 
         location_data = self.redisConnection.xread(count=50, streams={self.STREAM_KEY:0})
+        if location_data:
+            return location_data
+        else:
+            return False
+
+    # getStreamData() ->
+    # Used to get stream of data for a particular time.
+    def getStreamData(self, last_job_id):
+        # Check connection status
+        if not self.isConnectionAlive():
+            return False
+
+        if last_job_id < 0:
+            print("Last job ID can't be negetive !!!")
+            return False
+
+        print("Checking for jobs...")
+        location_data = self.redisConnection.xread(count=50, streams={self.STREAM_KEY:last_job_id}, block=5000)
+
+        if len(location_data) == 0:
+            print("Nothing to do right now, sleeping...")
+            time.sleep(random.randint(5, 10))
+
         if location_data:
             return location_data
         else:
@@ -99,6 +124,14 @@ class locationStreamManager:
             print("No timestamp data available!!!")
             return False
 
+    # printLogData() ->
+    # print latitude, longitude & time
+    def printLogData(lat, long, time):
+        print(f"Lat  : {lat}")
+        print(f"Long : {long}")
+        print(f"Time : {time}")
+        print("\n")
+
     # processLocationData() ->
     # Used to process the stream data & generate a list of nearly accurate location data.
     def processLocationData(self, location_data):
@@ -119,7 +152,6 @@ class locationStreamManager:
                         print("Delete failed !!!")
                     continue
 
-
                 if(loc[1][b'idol'] not in idol_details.keys()):
                     idol_details[loc[1][b'idol']] = dict()
                     idol_details[loc[1][b'idol']]['stream_loc'] = list()
@@ -133,10 +165,7 @@ class locationStreamManager:
                     time_ms = int(str(loc[0])[2:-3])
                     time = datetime.datetime.fromtimestamp(time_ms/1000)
                     idol_details[loc[1][b'idol']]['stream_time'].append(time)
-                # print("Lat  : ",loc[1][b'lat'])
-                # print("Long : ",loc[1][b'lng'])
-                # print("Time : ",time)
-                # print("\n")
+                # self.printLogData(loc[1][b'lat'], loc[1][b'lng'], time)
                 entry_count += 1
 
             print("REPORT : ")
@@ -146,5 +175,3 @@ class locationStreamManager:
                 print("Lat  : ",round(lat, 7))
                 print("Long : ",round(lng, 7))
                 print("\n")
-
-
